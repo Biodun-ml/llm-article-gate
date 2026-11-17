@@ -127,7 +127,11 @@ def update_report(report: ModelReport, label: LabelledArticle, result: ArticleRe
         report.output_tokens = (report.output_tokens or 0) + stats.output_tokens
 
 
-def evaluate(provider: Provider, labels: list[LabelledArticle]) -> ModelReport:
+def evaluate(
+    provider: Provider,
+    labels: list[LabelledArticle],
+    results: list[tuple[LabelledArticle, ArticleResult]] | None = None,
+) -> ModelReport:
     report = ModelReport(model=provider.name)
     for position, label in enumerate(labels, start=1):
         rule = gate_url(label.url)
@@ -148,6 +152,8 @@ def evaluate(provider: Provider, labels: list[LabelledArticle]) -> ModelReport:
             flush=True,
         )
         update_report(report, label, result)
+        if results is not None:
+            results.append((label, result))
     return report
 
 

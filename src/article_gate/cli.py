@@ -2,6 +2,7 @@ import argparse
 import json
 import sys
 from dataclasses import asdict
+from datetime import datetime
 from pathlib import Path
 
 import httpx
@@ -83,16 +84,35 @@ def result_to_dict(result: ArticleResult) -> dict:
     }
 
 
-def run_eval(labels_path: Path, models: list[str]) -> int:
+def run_eval(labels_path: Path, models: list[str], out_dir: Path | None) -> int:
     labels = load_labels(labels_path)
     reports = []
     for spec in models:
         print(f"evaluating {spec} on {len(labels)} articles...", file=sys.stderr)
-        reports.append(evaluate(make_provider(spec), labels))
+        results: list = []
+        reports.append(evaluate(make_provider(spec), labels, results))
+        if out_dir:
+            write_eval_results(out_dir, spec, results)
     gated = reports[0].url_gated
+    table = format_table(reports)
     print(f"URL gate rejected {gated}/{len(labels)} articles before any model call.\n")
-    print(format_table(reports))
+    print(table)
+    if out_dir:
+        stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+        (out_dir / "summary.md").write_text(
+            f"# Eval run {stamp}\n\nLabels: {labels_path}\n\n```\n{table}\n```\n", encoding="utf-8"
+        )
+        print(f"\nsaved per-article results and summary.md to {out_dir}/", file=sys.stderr)
     return 0
+
+
+def write_eval_results(out_dir: Path, spec: str, results: list) -> None:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / f"{spec.replace(':', '_').replace('/', '_')}.jsonl"
+    with path.open("w", encoding="utf-8") as handle:
+        for label, result in results:
+            row = {"id": label.id, "expected_bookable": label.is_bookable, **result_to_dict(result)}
+            handle.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -108,6 +128,9 @@ def build_parser() -> argparse.ArgumentParser:
     eval_cmd = sub.add_parser("eval", help="score models against a labelled JSONL file")
     eval_cmd.add_argument("labels", type=Path)
     eval_cmd.add_argument("--models", nargs="+", default=[DEFAULT_MODEL])
+    eval_cmd.add_argument(
+        "--out", type=Path, default=Path("results"), help="where to save results ('' to skip)"
+    )
     return parser
 
 
@@ -116,7 +139,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "run":
             return run(args.sources, args.model, args.cache_dir, args.json)
-        return run_eval(args.labels, args.models)
+        return run_eval(args.labels, args.models, args.out if str(args.out) else None)
     except httpx.ConnectError as exc:
         print(
             f"could not reach the model server: {exc}. Is `ollama serve` running?", file=sys.stderr
