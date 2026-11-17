@@ -19,11 +19,13 @@ class Provider(Protocol):
 
 
 class OllamaProvider:
-    def __init__(self, model: str, host: str | None = None, timeout: float = 180.0):
+    def __init__(self, model: str, host: str | None = None, timeout: float | None = None):
         self.model = model
         self.name = f"ollama:{model}"
         self.host = (host or os.getenv("OLLAMA_HOST", "http://localhost:11434")).rstrip("/")
-        self.timeout = timeout
+        # CPU-only laptops can take minutes per article on a 7B model, mostly on the first call
+        # while the model loads.
+        self.timeout = timeout or float(os.getenv("OLLAMA_TIMEOUT", "600"))
 
     def complete(self, system: str, prompt: str) -> Completion:
         response = httpx.post(

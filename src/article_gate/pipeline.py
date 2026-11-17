@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from importlib.resources import files
 from typing import TypeVar
 
+import httpx
 from pydantic import BaseModel, ValidationError
 
 from article_gate.fetch import Article
@@ -115,4 +116,7 @@ def process_article(provider: Provider, article: Article) -> ArticleResult:
             result.extraction, result.dropped = ground(raw, article.text)
     except InvalidModelOutput as exc:
         result.error = f"invalid JSON after retry: {exc.args[0].splitlines()[0]}"
+    except httpx.TimeoutException:
+        result.stats.failures += 1
+        result.error = "model timed out (raise OLLAMA_TIMEOUT or use a smaller model)"
     return result

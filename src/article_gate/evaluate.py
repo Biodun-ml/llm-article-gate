@@ -1,5 +1,6 @@
 import json
 import re
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -128,7 +129,7 @@ def update_report(report: ModelReport, label: LabelledArticle, result: ArticleRe
 
 def evaluate(provider: Provider, labels: list[LabelledArticle]) -> ModelReport:
     report = ModelReport(model=provider.name)
-    for label in labels:
+    for position, label in enumerate(labels, start=1):
         rule = gate_url(label.url)
         if rule:
             result = ArticleResult(source=label.url, gate_rule=rule)
@@ -136,6 +137,16 @@ def evaluate(provider: Provider, labels: list[LabelledArticle]) -> ModelReport:
             article = read_file(label.path)
             article.source = label.url
             result = process_article(provider, article)
+        status = (
+            result.error
+            or result.gate_rule
+            or ("bookable" if result.is_bookable else "not bookable")
+        )
+        print(
+            f"  [{position}/{len(labels)}] {label.id}: {status} ({result.stats.latency_s:.1f}s)",
+            file=sys.stderr,
+            flush=True,
+        )
         update_report(report, label, result)
     return report
 

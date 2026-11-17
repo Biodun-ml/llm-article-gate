@@ -32,6 +32,11 @@ For the default local model, install [Ollama](https://ollama.com) and pull a mod
 ollama pull qwen2.5:7b
 ```
 
+On a laptop without a GPU a 7B model can take a minute or more per article, longer on the first
+call while the model loads. Requests time out after 600 s by default (`OLLAMA_TIMEOUT` to change
+it); a timed-out article is counted as failed and the run continues. `qwen2.5:3b` is a faster
+option for a quick check.
+
 Copy `.env.example` to `.env` and fill in only what you use. The CLI reads the environment,
 so export the variables or use a tool like `direnv`.
 

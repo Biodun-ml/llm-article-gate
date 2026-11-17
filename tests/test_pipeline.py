@@ -1,5 +1,6 @@
 import json
 
+import httpx
 import pytest
 
 from article_gate.fake import FakeProvider
@@ -57,6 +58,19 @@ def test_process_article_reports_failure_instead_of_raising() -> None:
     result = process_article(FakeProvider(["{}", "{}"]), ARTICLE)
     assert result.error and result.error.startswith("invalid JSON")
     assert result.classification is None
+
+
+class SlowProvider:
+    name = "slow"
+
+    def complete(self, system: str, prompt: str):
+        raise httpx.ReadTimeout("timed out")
+
+
+def test_timeout_is_reported_per_article() -> None:
+    result = process_article(SlowProvider(), ARTICLE)
+    assert result.error and result.error.startswith("model timed out")
+    assert result.stats.failures == 1
 
 
 def test_not_bookable_skips_extraction() -> None:
