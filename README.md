@@ -115,7 +115,7 @@ What is measured, per model:
   a retry). **failed** counts articles where the retry also failed.
 - **avg s/article** and **tokens in/out** when the provider reports them.
 
-#Each eval run also saves `results/<model>.jsonl` (one line per article: the classification,
+Each eval run also saves `results/<model>.jsonl` (one line per article: the classification,
 the extracted places with their evidence, what grounding dropped, timings) and
 `results/summary.md` with the table. Pass `--out other_dir` to keep runs apart.
 
